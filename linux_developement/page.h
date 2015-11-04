@@ -25,5 +25,4 @@ static void Page_table_updation(page_frame_t *list);
 static virtual_page_frame_t *Page_entry_formation(int index);
 static page_frame_t *page_table_address_translation(virtual_page_frame_t *list);
 static bool page_table_fetch_addr(uint64_t address, int index, page_frame_t *list);
->>>>>>> [memory_management]TLB commit
 #endif
