@@ -14,14 +14,14 @@ uint32_t ASID_bit;
 typedef struct TLB
 {
 vpn_t         v_vpn;
-page_frame_t *v_page_frame_number;
+page_frame_t  v_page_frame_number;
 bits_t       v_bits_t;
 struct TLB          *next;
-}TLB_t;0
+}TLB_t;
 TLB_t *start,*curr;//Base register 
-bool  TLB_fetch_addr(uint64_t address,int index,TLB_t *list);
-TLB_t *TLB_entry_formation(int index);
-void TLB_List_creation();
+static bool  TLB_fetch_addr(uint64_t address,int index,TLB_t *list);
+static TLB_t *TLB_entry_formation(int index);
+static void TLB_List_creation();
 
 
 #endif

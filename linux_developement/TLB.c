@@ -4,7 +4,7 @@
 TLB_t * (*virtual_address_fn)(int i);
 void *virtual_address[4];
 
-TLB_t *TLB_entry_formation(int index)
+static TLB_t *TLB_entry_formation(int index)
 {
 TLB_t *ret=malloc(sizeof(TLB_t));
 if(!ret)
@@ -16,12 +16,11 @@ if(!ret)
  ret->v_bits_t.valid_bit=0x1;
  ret->v_bits_t.ASID_bit=1;
  ret->next=NULL;
- printf("hello");
 }
 return ret;
 }
 
-bool TLB_fetch_addr(uint64_t address,int index,TLB_t *list)
+static bool TLB_fetch_addr(uint64_t address,int index,TLB_t *list)
 {
     bool ret=false;
     uint64_t vpn;
@@ -41,22 +40,22 @@ bool TLB_fetch_addr(uint64_t address,int index,TLB_t *list)
     return ret;
 }
 
-void TLB_List_creation()
+static void TLB_List_creation()
 {
-int i=4;
+uint32_t i=4;
 start=NULL;
 while(i>0)
 {
    if(!start)
     {
     start=TLB_entry_formation(i);
-    start->v_page_frame_number->v_page_frame=(uint32_t)i;
+    start->v_page_frame_number.v_page_frame=i;
     curr=start;
     }
    else
    {
     curr->next=TLB_entry_formation(i);
-    curr->v_page_frame_number->v_page_frame=(uint32_t)i;
+    curr->v_page_frame_number.v_page_frame=i;
     curr=curr;
    }
     i--;
