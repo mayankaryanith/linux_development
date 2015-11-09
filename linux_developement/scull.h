@@ -9,6 +9,7 @@
 #define SCULL_QUANTUM_BYTES 4000
 #define SCULL_QSET          1000
 #define SCULL_NAME          "scull"
+
 struct scull_qset
 {
     void **data;

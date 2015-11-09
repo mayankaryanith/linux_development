@@ -5,6 +5,7 @@
 #include <linux/fs.h>
 #include "scull.h"
 
+
 static int __init scull_init(void)
 {
     int i,res = alloc_chrdev_region(dev,0,

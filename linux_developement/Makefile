@@ -1,3 +1,4 @@
+
 obj-m += scull.o
 
 all:
