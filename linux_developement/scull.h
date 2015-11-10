@@ -27,4 +27,7 @@ struct scull_dev
 };
 dev_t *dev;
 struct scull_dev *scull_devices;
+ssize_t scull_read (struct file *, char __user *, size_t, loff_t *);
+ssize_t scull_write(struct file *, const char __user *, size_t, loff_t *);
+ int scull_release(struct inode *, struct file *);
 #endif
