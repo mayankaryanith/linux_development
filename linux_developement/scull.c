@@ -27,11 +27,10 @@ return res;
 
 static void scull_trim(struct scull_dev *dev)
 {
-    
     dev->size=0;
 }
 
-struct file_operations scull_fops=
+struct file_operations scull_fops
 {
     .owner   = THIS_MODULE,
     .read    = scull_read,
@@ -91,7 +90,7 @@ static void __exit scull_cleanup(void)
     while(i<SCULL_DEVICE_NO)
     {
         //I dont see the reason why do we need to trim the size of scull devices to 0 as we are alredy deleting it
-        scull_trim(scull_devices);
+        scull_trim(&scull_devices);
         cdev_del(&scull_devices->cdev);
         i++;
     }
