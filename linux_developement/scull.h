@@ -22,7 +22,7 @@ struct scull_dev
     int qset;
     unsigned long size;
     unsigned int access_key;
-    struct semaphore sem;
+    struct mutex mutex;
     struct cdev cdev;
 };
 dev_t *dev;

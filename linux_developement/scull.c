@@ -3,25 +3,26 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/fs.h>
+#include <linux/mutex.h>
 #include <asm/uaccess.h>
 #include "scull.h"
 
 ssize_t scull_read (struct file *filp, char __user *buffer, size_t x, loff_t *y)
 {
-ssize_t res;
+ssize_t res=0;//Bad patch
 return res;
 }
 
 ssize_t scull_write(struct file *filp, const char __user *buffer, size_t x, loff_t *y)
 {
-ssize_t res;
+ssize_t res=0;//Bad patch
 return res;
 
 }
 
 int scull_release(struct inode *x, struct file *filp)
 {
-int res;
+int res=0;//Bad patch
 return res;
 }
 
@@ -30,7 +31,7 @@ static void scull_trim(struct scull_dev *dev)
     dev->size=0;
 }
 
-struct file_operations scull_fops
+struct file_operations scull_fops =
 {
     .owner   = THIS_MODULE,
     .read    = scull_read,
@@ -64,7 +65,7 @@ static int __init scull_init(void)
         {
             scull_devices->quantum=SCULL_QUANTUM_BYTES;
             scull_devices->qset=SCULL_QSET;
-            init_mutex(&scull_devices->sem);
+            mutex_init(&scull_devices->mutex);
             cdev_init(&scull_devices->cdev,&scull_fops);
             res=cdev_add(&scull_devices->cdev,MKDEV(MAJOR(*dev),MINOR(*dev)+i),1);
             scull_devices++;
@@ -90,7 +91,7 @@ static void __exit scull_cleanup(void)
     while(i<SCULL_DEVICE_NO)
     {
         //I dont see the reason why do we need to trim the size of scull devices to 0 as we are alredy deleting it
-        scull_trim(&scull_devices);
+        scull_trim(scull_devices);
         cdev_del(&scull_devices->cdev);
         i++;
     }
