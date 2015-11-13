@@ -7,6 +7,40 @@
 #include <asm/uaccess.h>
 #include "scull.h"
 
+int scull_trim(struct scull_dev *dev)
+{
+    struct scull_qset *dataptr,*next;
+    int i=0;
+    dataptr=dev->data;
+    next=dataptr;
+    while(dataptr!=NULL)
+    {
+        for(i=0;i<dev->qset;i++)
+            kfree(dataptr->data[i]);
+        next=dataptr->next;
+        kfree(dataptr);
+        dataptr->data=NULL;
+        dataptr=next;
+    }
+    dev->size=0;
+    dev->quantum=SCULL_QUANTUM_BYTES;
+    dev->qset=SCULL_QSET;
+    dev->data=NULL;
+    return 0;
+}
+
+int scull_open(struct inode *inode, struct file *file)
+{
+struct scull_dev *s_dev;
+s_dev=container_of(inode->i_cdev,struct scull_dev,cdev);
+file->private_data=s_dev;
+if((file->f_flags & O_ACCMODE)== O_WRONLY)
+{
+    scull_trim(s_dev);
+}
+return 0;
+}
+
 ssize_t scull_read (struct file *filp, char __user *buffer, size_t x, loff_t *y)
 {
 ssize_t res=0;//Bad patch
@@ -22,21 +56,17 @@ return res;
 
 int scull_release(struct inode *x, struct file *filp)
 {
-int res=0;//Bad patch
-return res;
+    return 0;
 }
 
-static void scull_trim(struct scull_dev *dev)
-{
-    dev->size=0;
-}
 
 struct file_operations scull_fops =
 {
     .owner   = THIS_MODULE,
     .read    = scull_read,
     .write   = scull_write,
-    .release = scull_release
+    .release = scull_release,
+    .open    = scull_open
 };
 
 static int __init scull_init(void)
