@@ -54,7 +54,6 @@ KEY_MESSAGE	Message key*/
 
 /*Parameter to know the global state of the editor*/
 
-    #include<stdio.h>
     #include<ncurses.h>
     #include<stdlib.h>
     #include<signal.h>
