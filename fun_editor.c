@@ -53,7 +53,7 @@ KEY_MESSAGE	Message key*/
 //Golden rule is to make the variable local as much as possible to use less SRAM
 
 /*Parameter to know the global state of the editor*/
-
+    #include<stdio.h>
     #include<ncurses.h>
     #include<stdlib.h>
     #include<signal.h>
