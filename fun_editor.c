@@ -1,8 +1,12 @@
     /*
 gcc -Wall -std=gnu99 -o esc_ex esc_ex.c -lpdcurses
 */
-
-/*** Ncurses key indexing ***/
+    #include<stdio.h>
+    #include<ncurses.h>
+    #include<stdlib.h>
+    #include<signal.h>
+    #include<string.h>
+    #include<unistd.h>
 /*KEY_BREAK	Break key
 KEY_DOWN	Arrow down
 KEY_UP	Arrow up
@@ -54,11 +58,6 @@ KEY_MESSAGE	Message key*/
 
 /*Parameter to know the global state of the editor*/
 
-    #include<ncurses.h>
-    #include<stdlib.h>
-    #include<signal.h>
-    #include<string.h>
-    #include<unistd.h>
 #define KEY_ESC '\033'
 bool insert_mode=false;
 
@@ -66,7 +65,7 @@ bool insert_mode=false;
     {
 
     int c,x,y,size=1;
-    int *buff,*buff_curr,*temp_buff;
+    int *buff,*buff_beg,*buff_end,*buff_curr,*temp_buff;
     FILE *fp;
         // If file name is not given close the program
         if(argc!=2)
@@ -86,28 +85,22 @@ bool insert_mode=false;
     	    	scrollok(stdscr, TRUE);     // scrolling mode ON
                 printw("The editor is up and running press ESC to exit.\n");
 		        refresh();
-                fp=fopen(argv[1],"ab+");//open a existing file without truncating or create a new one
+                fp=fopen(argv[1],"r+");
         if(!fp)
         {
             printw("Error opening file");
             refresh();
-	    endwin();
+		    endwin();
             exit(1);
         }
         else
         {
-           buff_curr=NULL;
+           buff_beg=buff_end=buff_curr=NULL;
            buff=malloc(size*sizeof(int));
-           if(!buff)
-            {
-                printw(" Malloc memory allocation failed");
-                refresh();
-                exit(1);
-            }
            //If the file exists read the file
            while((c=getc(fp))!=EOF)
            {
-               if(c!='\n')
+               if(c!="\n")
                 {
                     addch(c);
                     //temp buffer that holds the value read from the file
@@ -130,6 +123,12 @@ bool insert_mode=false;
                }
 
            }
+           if(!buff)
+            {
+                printw(" Malloc memory allocation failed");
+                refresh();
+                exit(1);
+            }
             while((c=getch())!= KEY_ESC)
 	      {
           switch(c)
@@ -177,7 +176,7 @@ bool insert_mode=false;
                insert_mode=true;
                 break;
             case KEY_EIC:
-               insert_mode=false;
+               insert_mode=true;
                 break;
             case KEY_LEFT:
 		       nocbreak();
