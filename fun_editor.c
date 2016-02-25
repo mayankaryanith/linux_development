@@ -65,11 +65,33 @@ KEY_MESSAGE	Message key*/
     #define KEY_ESC '\033'
     bool overtype_mode=false;
     fpos_t pos;
+    void read_file(FILE *);
+    void read_file(FILE *fp)
+    {
+    		int c,x,y;
+                fseek(fp,0,SEEK_SET);
+                while((c=getc(fp))!=EOF)
+                {
+                    if(c!='\n') //dont know why I added the check for new line character
+                    {
+                        addch(c);
+                    }
+                    else
+                    {
+                        getyx(stdscr,y,x);
+                        move(y+1,0);
+                        refresh();
+                    }
+
+                }
+                refresh();
+    
+    }
     int main(int argc, char *argv[])
     {
-    int c,x,y;
     FILE *fp;
-    long lSize;
+    long lSize,y,x;
+    int c;
     long Fin;
     long position;
     char * buffer;
@@ -104,26 +126,13 @@ KEY_MESSAGE	Message key*/
         }
         else
         {
-           //If the file exists read the file
-           while((c=getc(fp))!=EOF)
-           {
-               if(c!='\n') //dont know why I added the check for new line character
-                {
-                    addch(c);
-                }
-               else
-               {
-                    getyx(stdscr,y,x);
-                    move(y+1,0);
-                    refresh();
-               }
-
-           }
+		read_file(fp);
             while((c=getch())!= KEY_ESC)
 	      {
           switch(c)
           {
             case KEY_F(1):
+               overtype_mode=false;
                 break;
             case KEY_F(2):
                 break;
@@ -142,6 +151,10 @@ KEY_MESSAGE	Message key*/
             case KEY_F(9):
                 break;
             case KEY_F(10):
+                break;
+            case KEY_EOS:
+            	fp=fopen(argv[1],"w+");
+		read_file(fp);	
                 break;
             case KEY_HOME://It will bring to the beginning of the file
 		        nocbreak();
@@ -166,7 +179,6 @@ KEY_MESSAGE	Message key*/
                overtype_mode=true;
                 break;
             case KEY_EIC:
-               overtype_mode=false;
                 break;
             case KEY_LEFT:
                refresh();
@@ -187,19 +199,11 @@ KEY_MESSAGE	Message key*/
 		       refresh();
                fseek(fp,+1,SEEK_CUR);
                break;
-            case KEY_EOS:
-               nocbreak();
-			   noecho();
-			   getmaxyx(stdscr,y,x);
-			   move(y,x);
-               cbreak();
-               refresh();
-			   break;
             case KEY_DOWN:
                 nocbreak();
- 		   		noecho();
- 		   		getyx(stdscr,y,x);
- 		   		move(y+1,x);
+ 		noecho();
+ 		getyx(stdscr,y,x);
+ 		move(y+1,x);
             	cbreak();
             	refresh();
  		        break;
@@ -237,27 +241,14 @@ KEY_MESSAGE	Message key*/
                 getbegyx(stdscr,y,x);
                 move(y+1,x);
                 erase();
-                fseek(fp,0,SEEK_SET);
-                while((c=getc(fp))!=EOF)
-                {
-                    if(c!='\n') //dont know why I added the check for new line character
-                    {
-                        addch(c);
-                    }
-                    else
-                    {
-                        getyx(stdscr,y,x);
-                        move(y+1,0);
-                        refresh();
-                    }
-
-                }
-                refresh();
+		read_file(fp);
                 break;
             default: // write to the file
                 if(overtype_mode)  // overtype mode where you overwrite a character in existing location
                 {
-                    fseek(fp, 0L, SEEK_END);
+		    fseek(fp, 0L, SEEK_CUR);
+                    position=ftell(fp);
+		    fseek(fp, 0L, SEEK_END);
                     Fin=ftell(fp);
                     fseek(fp, position, SEEK_SET);//current "position" in the file
                     lSize = Fin - position;//lenght from where you want to insert the chars and the eof
@@ -266,19 +257,22 @@ KEY_MESSAGE	Message key*/
                     fseek(fp, position, SEEK_SET);//fseek to position
                     fputc(c, fp);//write the character and it is a char pointer
                     fputs(buffer, fp);//fwrite the buffer
+          	    free(buffer);
+          	    buffer=NULL;
                 }
+		else
+		{
                 getyx(stdscr,y,x);
                 addch(c);
                 refresh();
                 fputc(mvinch(y,x) & A_CHARTEXT,fp);
                 move(y,x+1);
+		}
              }
 	      }
 		  refresh();
 		  fclose(fp);
           fp=NULL;
-          free(buffer);
-          buffer=NULL;
 		  endwin();
 	}
         return 0;
