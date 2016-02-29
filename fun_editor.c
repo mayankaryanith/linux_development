@@ -1,4 +1,3 @@
-
 /*** How to compile the code ***/
 /*
 gcc -Wall -std=gnu99 -o esc_ex esc_ex.c -lncurses
@@ -64,11 +63,13 @@ KEY_MESSAGE	Message key*/
     #include<unistd.h>
     #define KEY_ESC '\033'
     bool overtype_mode=false;
+    long map=0;
     fpos_t pos;
     void read_file(FILE *);
+    void write_file(FILE *,bool, int);
     void read_file(FILE *fp)
     {
-    		int c,x,y;
+                int c,x,y;
                 fseek(fp,0,SEEK_SET);
                 while((c=getc(fp))!=EOF)
                 {
@@ -80,21 +81,51 @@ KEY_MESSAGE	Message key*/
                     {
                         getyx(stdscr,y,x);
                         move(y+1,0);
-                        refresh();
                     }
 
                 }
                 refresh();
-    
+    }
+    void write_file(FILE *fp, bool overtype_mode,int c)
+    {
+        long lSize,y,x;
+        long Fin;
+        long position;
+        char * buffer;
+        if(overtype_mode)  // Insert mode where you overwrite a character in existing location
+        {
+            fseek(fp, map, SEEK_SET);//Read file sets the curser on the end in the subsequent runs hence need to update it back on the prev run
+            position=ftell(fp);
+		    fseek(fp, 0L, SEEK_END);
+            Fin=ftell(fp);
+            fseek(fp, position, SEEK_SET);//current "position" in the file
+            lSize = Fin - position-1;//lenght from where you want to insert the chars and the eof
+            buffer = (char*) malloc(sizeof(char) * lSize);
+            fread(buffer, 1, lSize, fp);//fread (Fin - position) into buffer
+            fseek(fp, position, SEEK_SET);//fseek to position
+            fputc(c, fp);//write the character and it is a char pointer
+            fputs(buffer, fp);//fwrite the buffer
+            free(buffer);
+            buffer=NULL;
+            erase();
+            read_file(fp);
+            move(y,x-lSize);
+            map++;
+            refresh();
+        }
+		else
+		{
+            getyx(stdscr,y,x);
+            addch(c);
+            refresh();
+            fputc(mvinch(y,x) & A_CHARTEXT,fp);
+            move(y,x+1);
+		}
     }
     int main(int argc, char *argv[])
     {
+    int c,x,y;
     FILE *fp;
-    long lSize,y,x;
-    int c;
-    long Fin;
-    long position;
-    char * buffer;
         // If file name is not given close the program
         if(argc!=2)
         {
@@ -133,6 +164,7 @@ KEY_MESSAGE	Message key*/
           {
             case KEY_F(1):
                overtype_mode=false;
+               map=0;
                 break;
             case KEY_F(2):
                 break;
@@ -181,7 +213,7 @@ KEY_MESSAGE	Message key*/
             case KEY_EIC:
                 break;
             case KEY_LEFT:
-               refresh();
+                refresh();
 		       nocbreak();
 		       noecho();
 		       getyx(stdscr,y,x);
@@ -189,6 +221,7 @@ KEY_MESSAGE	Message key*/
 		       cbreak();
 		       refresh();
                fseek(fp,-1,SEEK_CUR);
+               map=ftell(fp);
                break;
             case KEY_RIGHT:
                nocbreak();
@@ -198,12 +231,13 @@ KEY_MESSAGE	Message key*/
 			   cbreak();
 		       refresh();
                fseek(fp,+1,SEEK_CUR);
+               map=ftell(fp);
                break;
             case KEY_DOWN:
                 nocbreak();
- 		noecho();
- 		getyx(stdscr,y,x);
- 		move(y+1,x);
+ 	        	noecho();
+ 		        getyx(stdscr,y,x);
+ 		        move(y+1,x);
             	cbreak();
             	refresh();
  		        break;
@@ -214,61 +248,25 @@ KEY_MESSAGE	Message key*/
                 refresh();
                 printw("wordcount: %d \n",ftell(fp));
                 refresh();
-                fseek(fp,0,SEEK_SET);
-                while((c=getc(fp))!=EOF)
-                {
-                    if(c!='\n') //dont know why I added the check for new line character
-                    {
-                        addch(c);
-                    }
-                    else
-                    {
-                        getyx(stdscr,y,x);
-                        move(y+1,0);
-                        refresh();
-                    }
-
-                }
+                read_file(fp);
                 break;
             case KEY_BACKSPACE:  //ftruncate the file by each character when back_space is pressed,fd is required beacause as ftruncate only works with open 
 		        nocbreak();
 		        noecho();
 		        getyx(stdscr,y,x);
-		        move(y,x-1);
+		       //fix for backspace when we use left and right arrow key
+                move(y,x-1);
 		        delch();
 		        cbreak();
                 ftruncate(fileno(fp),ftell(fp)-1);
                 getbegyx(stdscr,y,x);
                 move(y+1,x);
                 erase();
-		read_file(fp);
+		        read_file(fp);
                 break;
             default: // write to the file
-                if(overtype_mode)  // overtype mode where you overwrite a character in existing location
-                {
-		    fseek(fp, 0L, SEEK_CUR);
-                    position=ftell(fp);
-		    fseek(fp, 0L, SEEK_END);
-                    Fin=ftell(fp);
-                    fseek(fp, position, SEEK_SET);//current "position" in the file
-                    lSize = Fin - position;//lenght from where you want to insert the chars and the eof
-                    buffer = (char*) malloc(sizeof(char) * lSize);
-                    fread(buffer, 1, lSize, fp);//fread (Fin - position) into buffer
-                    fseek(fp, position, SEEK_SET);//fseek to position
-                    fputc(c, fp);//write the character and it is a char pointer
-                    fputs(buffer, fp);//fwrite the buffer
-          	    free(buffer);
-          	    buffer=NULL;
-                }
-		else
-		{
-                getyx(stdscr,y,x);
-                addch(c);
-                refresh();
-                fputc(mvinch(y,x) & A_CHARTEXT,fp);
-                move(y,x+1);
-		}
-             }
+                write_file(fp,overtype_mode,c);
+            }
 	      }
 		  refresh();
 		  fclose(fp);
@@ -277,5 +275,3 @@ KEY_MESSAGE	Message key*/
 	}
         return 0;
     }
-
-
