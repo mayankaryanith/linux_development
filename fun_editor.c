@@ -67,6 +67,7 @@ KEY_MESSAGE	Message key*/
     fpos_t pos;
     void read_file(FILE *);
     void write_file(FILE *,bool, int);
+    void backspace(FILE *,int);
     void read_file(FILE *fp)
     {
                 int c,x,y;
@@ -121,6 +122,31 @@ KEY_MESSAGE	Message key*/
             fputc(mvinch(y,x) & A_CHARTEXT,fp);
             move(y,x+1);
 		}
+    }
+    void backspace(FILE *fp,int c)
+    {
+        long lSize,y,x;
+        long Fin;
+        long position;
+        char * buffer;
+        fseek(fp, map, SEEK_SET);//Read file sets the curser on the end in the subsequent runs hence need to update it back on the prev run
+        position=ftell(fp);
+	fseek(fp, 0L, SEEK_END);
+        Fin=ftell(fp);
+        fseek(fp, position, SEEK_SET);//current "position" in the file
+        lSize = Fin - position-1;//lenght from where you want to insert the chars and the eof
+        buffer = (char*) malloc(sizeof(char) * (lSize-1));
+        fread(buffer, 1, lSize-1, fp);//fread (Fin - position) into buffer
+        fseek(fp, position, SEEK_SET);//fseek to position
+        fputc(c, fp);//write the character and it is a char pointer
+        fputs(buffer, fp);//fwrite the buffer
+        free(buffer);
+        buffer=NULL;
+        erase();
+        read_file(fp);
+        move(y,x-lSize);
+        map++;
+        refresh();
     }
     int main(int argc, char *argv[])
     {
