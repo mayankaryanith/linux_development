@@ -61,13 +61,13 @@ KEY_MESSAGE	Message key*/
     #include<string.h>
     #include<sys/types.h>
     #include<unistd.h>
+    #include<assert.h>
     #define KEY_ESC '\033'
     bool overtype_mode=false;
-    long map=0;
     fpos_t pos;
     void read_file(FILE *);
-    void write_file(FILE *,bool, int);
-    void backspace(FILE *,int);
+    void write_file(FILE *,bool, int, int, int);
+    FILE * backspace(FILE *,char *, int, int);
     void read_file(FILE *fp)
     {
                 int c,x,y;
@@ -87,32 +87,41 @@ KEY_MESSAGE	Message key*/
                 }
                 refresh();
     }
-    void write_file(FILE *fp, bool overtype_mode,int c)
+    void write_file(FILE *fp, bool overtype_mode,int c, int curr, int end)
     {
-        long lSize,y,x;
+        long y,x;
         long Fin;
         long position;
         char * buffer;
         if(overtype_mode)  // Insert mode where you overwrite a character in existing location
         {
-            fseek(fp, map, SEEK_SET);//Read file sets the curser on the end in the subsequent runs hence need to update it back on the prev run
+            /*fseek(fp, map, SEEK_SET);//Read file sets the curser on the end in the subsequent runs hence need to update it back on the prev run
             position=ftell(fp);
 		    fseek(fp, 0L, SEEK_END);
             Fin=ftell(fp);
-            fseek(fp, position, SEEK_SET);//current "position" in the file
-            lSize = Fin - position-1;//lenght from where you want to insert the chars and the eof
-            buffer = (char*) malloc(sizeof(char) * lSize);
-            fread(buffer, 1, lSize, fp);//fread (Fin - position) into buffer
-            fseek(fp, position, SEEK_SET);//fseek to position
-            fputc(c, fp);//write the character and it is a char pointer
-            fputs(buffer, fp);//fwrite the buffer
-            free(buffer);
-            buffer=NULL;
-            erase();
-            read_file(fp);
-            move(y,x-lSize);
-            map++;
+            fseek(fp, position, SEEK_SET);//current "position" in the file*/
+            printw("lsize: %d",end-curr);
             refresh();
+            buffer = (char*) malloc(sizeof(char) * (end+1-curr));
+            if(buffer !=NULL)
+            {
+                 fseek(fp,curr, SEEK_SET);//fseek to position
+                 fread(buffer, 1, end-curr-1, fp);//fread (end - curr) into buffer
+                 /* Potential bug when the curser is at the end of the file buffer underflow occurs shall be fixed soon*/
+                 fputc(c, fp);//write the character and it is a char pointer
+                 fputs(buffer, fp);//fwrite the buffer
+                 /* Update the map according to the file offset */
+                 assert(0);
+                 free(buffer);
+                 buffer=NULL;
+                 erase();
+                 read_file(fp);
+                 move(y,x-end+curr);
+                 refresh();
+            }
+            else
+            {
+            }
         }
 		else
 		{
@@ -121,32 +130,54 @@ KEY_MESSAGE	Message key*/
             refresh();
             fputc(mvinch(y,x) & A_CHARTEXT,fp);
             move(y,x+1);
+            fseek(fp,0,SEEK_CUR);
 		}
     }
-    void backspace(FILE *fp,int c)
+    FILE * backspace(FILE *fp, char * filename, int curr, int end)
     {
-        long lSize,y,x;
-        long Fin;
-        long position;
-        char * buffer;
-        fseek(fp, map, SEEK_SET);//Read file sets the curser on the end in the subsequent runs hence need to update it back on the prev run
-        position=ftell(fp);
-	fseek(fp, 0L, SEEK_END);
-        Fin=ftell(fp);
-        fseek(fp, position, SEEK_SET);//current "position" in the file
-        lSize = Fin - position-1;//lenght from where you want to insert the chars and the eof
-        buffer = (char*) malloc(sizeof(char) * (lSize-1));
-        fread(buffer, 1, lSize-1, fp);//fread (Fin - position) into buffer
-        fseek(fp, position, SEEK_SET);//fseek to position
-        fputc(c, fp);//write the character and it is a char pointer
-        fputs(buffer, fp);//fwrite the buffer
-        free(buffer);
-        buffer=NULL;
-        erase();
-        read_file(fp);
-        move(y,x-lSize);
-        map++;
-        refresh();
+        if(curr==end)
+		{
+			ftruncate(fileno(fp),ftell(fp)-1);
+			erase();
+			read_file(fp);
+            return fp;
+		}
+		else
+		{
+				long lSize,y,x;
+                char * buffer1, *buffer2;
+                /* Increase the size of the buffer1 to concatenate */
+                lSize = end - curr;//length from where you want to insert the chars and the eof
+                buffer1 = (char*) malloc(sizeof(char) * (curr+lSize-1));
+                buffer2 = (char*) malloc(sizeof(char) * lSize);
+                fseek(fp, curr, SEEK_SET);//Read file sets the curser on the end in the subsequent runs hence need to update it back on the prev run
+				if(buffer1!=NULL)
+				{
+				fseek(fp,0,SEEK_SET);
+                fread(buffer1, 1, curr-1, fp);//Read from the beginning of the file till position-1
+				}
+                fseek(fp, curr, SEEK_SET);//current "position" in the file
+                if(buffer2!=NULL)
+				{
+                    fread(buffer2, 1, lSize, fp);//fread (end - map) into buffer
+				}
+                /*concatenate the buffer size */
+                strcat(buffer1,buffer2);
+				fclose(fp);
+                fp=fopen(filename,"w+");
+				fwrite(buffer1, strlen(buffer1),1,fp);//fwrite the buffer
+                erase();
+                read_file(fp);
+		        getbegyx(stdscr,y,x);
+		        move(y,x+curr-1);
+                refresh();
+                free(buffer1);
+                free(buffer2);
+                buffer1=NULL;
+                buffer2=NULL;
+                return fp;
+				}
+		
     }
     int main(int argc, char *argv[])
     {
@@ -183,47 +214,50 @@ KEY_MESSAGE	Message key*/
         }
         else
         {
-		read_file(fp);
+            long map;
+            long end;
+		    read_file(fp);
+            /*map and end coincides when we read the file*/
+            map=ftell(fp);
+            end=ftell(fp);
             while((c=getch())!= KEY_ESC)
 	      {
-          switch(c)
-          {
-            case KEY_F(1):
-               overtype_mode=false;
-               map=0;
+		    switch(c)
+              	{
+                case KEY_F(1):      //undo insert tab
+                    break;
+                case KEY_F(2):
                 break;
-            case KEY_F(2):
+                case KEY_F(3):
+                    break;
+                case KEY_F(4):
+                    break;
+                case KEY_F(5):
                 break;
-            case KEY_F(3):
+                case KEY_F(6):
+                    break;
+                case KEY_F(7):
+                    break;
+                case KEY_F(8):
                 break;
-            case KEY_F(4):
+                case KEY_F(9):
+                    break;
+                case KEY_F(10):
+                    break;
+                case KEY_EOS:
+                fp=fopen(argv[1],"w+");
+		        read_file(fp);
                 break;
-            case KEY_F(5):
-                break;
-            case KEY_F(6):
-                break;
-            case KEY_F(7):
-                break;
-            case KEY_F(8):
-                break;
-            case KEY_F(9):
-                break;
-            case KEY_F(10):
-                break;
-            case KEY_EOS:
-            	fp=fopen(argv[1],"w+");
-		read_file(fp);	
-                break;
-            case KEY_HOME://It will bring to the beginning of the file
-		        nocbreak();
-		        noecho();
-		        getyx(stdscr,y,x);
-		        move(y,0);
-		        cbreak();
-		        refresh();
-                fseek(fp,0,SEEK_SET);
-                break;
-            case KEY_UP:
+                case KEY_HOME://It will bring to the beginning of the file
+		            nocbreak();
+		            noecho();
+		            getyx(stdscr,y,x);
+		            move(y,0);
+		            cbreak();
+		            refresh();
+                    fseek(fp,0,SEEK_SET);
+                    break;
+                case KEY_UP:
 		        nocbreak();
 		        noecho();
 		        getyx(stdscr,y,x);
@@ -231,68 +265,69 @@ KEY_MESSAGE	Message key*/
 		        cbreak();
 		        refresh();
                 break;
-            case KEY_PPAGE:
-                break;
-            case KEY_IC:
-               overtype_mode=true;
-                break;
-            case KEY_EIC:
-                break;
-            case KEY_LEFT:
+                case KEY_PPAGE:
+                    break;
+                case KEY_IC:
+                   overtype_mode=true;
+                    break;
+                case KEY_EIC:
+                    overtype_mode=false;
+                    map=0;
+                    break;
+                case KEY_LEFT:
                 refresh();
-		       nocbreak();
-		       noecho();
-		       getyx(stdscr,y,x);
-		       move(y,x-1);
-		       cbreak();
-		       refresh();
-               fseek(fp,-1,SEEK_CUR);
-               map=ftell(fp);
-               break;
-            case KEY_RIGHT:
-               nocbreak();
-			   noecho();
-			   getyx(stdscr,y,x);
-			   move(y,x+1);
-			   cbreak();
-		       refresh();
-               fseek(fp,+1,SEEK_CUR);
-               map=ftell(fp);
-               break;
-            case KEY_DOWN:
-                nocbreak();
- 	        	noecho();
- 		        getyx(stdscr,y,x);
- 		        move(y+1,x);
-            	cbreak();
-            	refresh();
- 		        break;
-            case KEY_NPAGE:
-                getbegyx(stdscr,y,x);
-                move(y+1,x);
-                erase();
-                refresh();
-                printw("wordcount: %d \n",ftell(fp));
-                refresh();
-                read_file(fp);
-                break;
-            case KEY_BACKSPACE:  //ftruncate the file by each character when back_space is pressed,fd is required beacause as ftruncate only works with open 
-		        nocbreak();
-		        noecho();
-		        getyx(stdscr,y,x);
-		       //fix for backspace when we use left and right arrow key
-                move(y,x-1);
-		        delch();
-		        cbreak();
-                ftruncate(fileno(fp),ftell(fp)-1);
-                getbegyx(stdscr,y,x);
-                move(y+1,x);
-                erase();
-		        read_file(fp);
-                break;
-            default: // write to the file
-                write_file(fp,overtype_mode,c);
-            }
+		           nocbreak();
+		           noecho();
+		           getyx(stdscr,y,x);
+		           move(y,x-1);
+		           cbreak();
+		           refresh();
+                   fseek(fp,-1,SEEK_CUR);
+                   map=ftell(fp);
+                   break;
+                case KEY_RIGHT:
+                   nocbreak();
+		    	   noecho();
+		    	   getyx(stdscr,y,x);
+		    	   move(y,x+1);
+		    	   cbreak();
+		           refresh();
+                   fseek(fp,+1,SEEK_CUR);
+                   map=ftell(fp);
+                  	break;
+                case KEY_DOWN:
+                    nocbreak();
+ 	            	noecho();
+ 		            getyx(stdscr,y,x);
+ 		            move(y+1,x);
+                	cbreak();
+                	refresh();
+ 		            break;
+                case KEY_NPAGE:
+                    getbegyx(stdscr,y,x);
+                    move(y+1,x);
+                    erase();
+                    refresh();
+                    read_file(fp);
+                    erase();
+                    printw("wordcount: %d \t",ftell(fp));
+                    refresh();
+                    break;
+                case KEY_BACKSPACE:  //backspace function implemented instead
+		    	    fseek(fp,0,SEEK_CUR);
+                    map=ftell(fp);
+		    	    fseek(fp,0,SEEK_END);
+                    end=ftell(fp);
+                    fp=backspace(fp,argv[1],map,end);
+		    	    fseek(fp,map-1,SEEK_SET);
+                    break;
+                default: // write to the file
+		    	    fseek(fp,0,SEEK_CUR);
+                    map=ftell(fp);
+		    	    fseek(fp,0,SEEK_END);
+                    end=ftell(fp);
+                    write_file(fp,overtype_mode,c,map,end);
+                }
 	      }
 		  refresh();
 		  fclose(fp);
