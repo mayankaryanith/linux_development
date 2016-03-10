@@ -67,7 +67,7 @@ KEY_MESSAGE	Message key*/
     fpos_t pos;
     void read_file(FILE *);
     void write_file(FILE *,bool, int, int, int);
-    FILE * backspace(FILE *,char *, int, int);
+    void backspace(FILE *,char *, int, int);
     void read_file(FILE *fp)
     {
                 int c,x,y;
@@ -90,37 +90,33 @@ KEY_MESSAGE	Message key*/
     void write_file(FILE *fp, bool overtype_mode,int c, int curr, int end)
     {
         long y,x;
-        long Fin;
-        long position;
-        char * buffer;
+        char * buffer=NULL;
         if(overtype_mode)  // Insert mode where you overwrite a character in existing location
         {
-            /*fseek(fp, map, SEEK_SET);//Read file sets the curser on the end in the subsequent runs hence need to update it back on the prev run
-            position=ftell(fp);
-		    fseek(fp, 0L, SEEK_END);
-            Fin=ftell(fp);
-            fseek(fp, position, SEEK_SET);//current "position" in the file*/
-            printw("lsize: %d",end-curr);
-            refresh();
             buffer = (char*) malloc(sizeof(char) * (end+1-curr));
             if(buffer !=NULL)
             {
                  fseek(fp,curr, SEEK_SET);//fseek to position
-                 fread(buffer, 1, end-curr-1, fp);//fread (end - curr) into buffer
-                 /* Potential bug when the curser is at the end of the file buffer underflow occurs shall be fixed soon*/
-                 fputc(c, fp);//write the character and it is a char pointer
-                 fputs(buffer, fp);//fwrite the buffer
-                 /* Update the map according to the file offset */
-                 assert(0);
-                 free(buffer);
-                 buffer=NULL;
-                 erase();
-                 read_file(fp);
-                 move(y,x-end+curr);
-                 refresh();
-            }
-            else
-            {
+                 if(end-curr-1>0)
+                 {
+                    fread(buffer, sizeof(char) , end-curr-1, fp);//fread (end - curr) into buffer
+                    fputc(c, fp);//write the character and it is a char pointer
+                    fputs(buffer, fp);//fwrite the buffer
+                    /* Update the map according to the file offset */
+                    free(buffer);
+                    buffer=NULL;
+                    erase();
+                    read_file(fp);
+		            getbegyx(stdscr,y,x);
+                    move(y,x-end+curr);
+                    refresh();
+                 }
+                    /* For potential bug when the curser is at the end of the file buffer allocation fails*/
+                 else
+                 {
+                    free(buffer);
+                    buffer=NULL;
+                 }
             }
         }
 		else
@@ -133,39 +129,40 @@ KEY_MESSAGE	Message key*/
             fseek(fp,0,SEEK_CUR);
 		}
     }
-    FILE * backspace(FILE *fp, char * filename, int curr, int end)
+    void backspace(FILE *fp, char * filename, int curr, int end)
     {
+				long lSize,y,x;
+                char * buffer1=NULL, *buffer2=NULL;
         if(curr==end)
 		{
 			ftruncate(fileno(fp),ftell(fp)-1);
 			erase();
 			read_file(fp);
-            return fp;
 		}
 		else
 		{
-				long lSize,y,x;
-                char * buffer1, *buffer2;
-                /* Increase the size of the buffer1 to concatenate */
                 lSize = end - curr;//length from where you want to insert the chars and the eof
-                buffer1 = (char*) malloc(sizeof(char) * (curr+lSize-1));
+                buffer1 = (char*) malloc(sizeof(char) * (curr-1));
                 buffer2 = (char*) malloc(sizeof(char) * lSize);
-                fseek(fp, curr, SEEK_SET);//Read file sets the curser on the end in the subsequent runs hence need to update it back on the prev run
 				if(buffer1!=NULL)
 				{
 				fseek(fp,0,SEEK_SET);
-                fread(buffer1, 1, curr-1, fp);//Read from the beginning of the file till position-1
+                fread(buffer1, sizeof(char), curr-1, fp);//Read from the beginning of the file till curr-1
 				}
-                fseek(fp, curr, SEEK_SET);//current "position" in the file
                 if(buffer2!=NULL)
 				{
-                    fread(buffer2, 1, lSize, fp);//fread (end - map) into buffer
+                    fseek(fp, curr, SEEK_SET);//current "position" in the file
+                    fread(buffer2,sizeof(char), lSize, fp);//fread (end - map) into buffer
 				}
-                /*concatenate the buffer size */
-                strcat(buffer1,buffer2);
-				fclose(fp);
-                fp=fopen(filename,"w+");
-				fwrite(buffer1, strlen(buffer1),1,fp);//fwrite the buffer
+                fseek(fp,0,SEEK_SET);//move to begining of the file
+                if(buffer1!=NULL)
+				    fwrite(buffer1,sizeof(char),sizeof(buffer1),fp);//fwrite the buffer
+                fseek(fp,curr-1,SEEK_SET);
+                if(buffer2!=NULL)
+				    fwrite(buffer2,sizeof(char),sizeof(buffer2),fp);//fwrite the buffer
+                fseek(fp,0,SEEK_END);
+                /*Fix for the meta characters at the end of the file*/
+			    ftruncate(fileno(fp),ftell(fp)-1);
                 erase();
                 read_file(fp);
 		        getbegyx(stdscr,y,x);
@@ -175,8 +172,7 @@ KEY_MESSAGE	Message key*/
                 free(buffer2);
                 buffer1=NULL;
                 buffer2=NULL;
-                return fp;
-				}
+		}
 		
     }
     int main(int argc, char *argv[])
@@ -318,7 +314,7 @@ KEY_MESSAGE	Message key*/
                     map=ftell(fp);
 		    	    fseek(fp,0,SEEK_END);
                     end=ftell(fp);
-                    fp=backspace(fp,argv[1],map,end);
+                    backspace(fp,argv[1],map,end);
 		    	    fseek(fp,map-1,SEEK_SET);
                     break;
                 default: // write to the file
